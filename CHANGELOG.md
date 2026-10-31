@@ -2,6 +2,12 @@
 
 Muoto perustuu [Keep a Changelogiin](https://keepachangelog.com/fi/1.0.0/), ja versiointi noudattaa [Semantic Versioningia](https://semver.org/lang/fi/).
 
+## [Julkaisematon]
+
+### Korjattu
+
+- Tietoturva: URL:n salaisuusparametrit (`key`, `api_key`, `access_token`, `token`; kirjainkoolla ei väliä) maskataan (`REDACTED`) ennen cassetteen tallennusta, avaimen laskentaa ja `CassetteMissError`-viestiä. Aiemmin esim. Geminin `?key=...` tallentui selkokielisenä. Toisto tunnistaa pyynnön maskatusta URL:sta, joten avaimen vaihtuminen ei riko tallenteita. Jo tallennetut cassetet kannattaa ajaa uudelleen `record`-tilassa ja tarkistaa vanhat tiedostot (avain voi olla jo Gitissä: vaihda se).
+
 ## [0.2.0] - 2026-10-16
 
 Ensimmäinen npm-julkaisu: `@tonyweckstrom/llm-cassette`.

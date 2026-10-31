@@ -10,7 +10,8 @@ import { dirname } from "node:path";
  * - "auto": toistaa jos tallenne löytyy, muuten kutsuu oikeaa fetchiä ja tallentaa.
  *
  * Turvallisuus: pyyntöotsikoita (esim. Authorization) ei koskaan tallenneta
- * eikä lueta avaimen laskentaan. Pyynnön runko (prompti) tallennetaan luettavuuden vuoksi.
+ * eikä lueta avaimen laskentaan. URL:n salaisuusparametrit (key, api_key, access_token, token)
+ * maskataan ennen tallennusta ja avaimen laskentaa. Pyynnön runko (prompti) tallennetaan luettavuuden vuoksi.
  */
 
 export type CassetteMode = "replay" | "record" | "auto";
@@ -72,8 +73,16 @@ function normalizeBody(body: string | null, ignore: Set<string>): string {
   }
 }
 
+const SECRET_PARAMS = ["key", "api_key", "access_token", "token"];
+const SECRET_PARAM_RE = new RegExp(`([?&;])(${SECRET_PARAMS.join("|")})=[^&#]*`, "gi");
+
+/** Korvaa URL:n tunnettujen salaisuusparametrien arvot merkkijonolla REDACTED. */
+export function maskUrl(url: string): string {
+  return url.replace(SECRET_PARAM_RE, "$1$2=REDACTED");
+}
+
 export function requestKey(method: string, url: string, body: string | null, ignoreBodyKeys: string[] = []): string {
-  const normalized = `${method.toUpperCase()}\n${url}\n${normalizeBody(body, new Set(ignoreBodyKeys))}`;
+  const normalized = `${method.toUpperCase()}\n${maskUrl(url)}\n${normalizeBody(body, new Set(ignoreBodyKeys))}`;
   return createHash("sha256").update(normalized).digest("hex");
 }
 
@@ -138,7 +147,8 @@ export function cassetteFetch(options: CassetteOptions): typeof fetch {
 
   return async (input, init) => {
     const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const rawUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url = maskUrl(rawUrl);
     const body = await requestBody(input, init);
     const key = requestKey(method, url, body, options.ignoreBodyKeys);
 

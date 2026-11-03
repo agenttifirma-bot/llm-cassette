@@ -4,6 +4,10 @@ Muoto perustuu [Keep a Changelogiin](https://keepachangelog.com/fi/1.0.0/), ja v
 
 ## [Julkaisematon]
 
+### Lisätty
+
+- Testi `test/nauhat-salaisuudet.test.ts` kaataa CI:n, jos repossa oleva cassette-tiedosto sisältää maskaamattoman URL-avaimen, salaisuusotsakkeen, Bearer-tunnisteen tai tunnetun avaimen muotoisen merkkijonon.
+
 ### Korjattu
 
 - Tietoturva: URL:n salaisuusparametrit (`key`, `api_key`, `access_token`, `token`; kirjainkoolla ei väliä) maskataan (`REDACTED`) ennen cassetteen tallennusta, avaimen laskentaa ja `CassetteMissError`-viestiä. Aiemmin esim. Geminin `?key=...` tallentui selkokielisenä. Toisto tunnistaa pyynnön maskatusta URL:sta, joten avaimen vaihtuminen ei riko tallenteita. Jo tallennetut cassetet kannattaa ajaa uudelleen `record`-tilassa ja tarkistaa vanhat tiedostot (avain voi olla jo Gitissä: vaihda se).

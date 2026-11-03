@@ -179,4 +179,47 @@ describe("llm-cassette", () => {
     expect(requestKey("post", "http://a", '{"x":1}')).toBe(requestKey("POST", "http://a", '{ "x": 1 }'));
     expect(requestKey("GET", "http://a", null)).not.toBe(requestKey("POST", "http://a", null));
   });
+  it("URL:n salaisuusparametri (?key=) ei tallennu cassetteen", async () => {
+    const real = fakeFetch([{ body: { text: "moi" } }]);
+    const rec = cassetteFetch({ path, mode: "record", fetch: real.f });
+    await rec("http://llm.local/v1/models/m:generate?key=SECRET123&alt=json", post({ prompt: "hei" }));
+    const raw = readFileSync(path, "utf8");
+    expect(raw).not.toContain("SECRET123");
+    expect(raw).toContain("alt=json");
+  });
+
+  it("kaikki tunnetut salaisuusparametrit maskataan (myos isot kirjaimet ja &-jarjestys)", async () => {
+    const real = fakeFetch([{ body: { ok: 1 } }]);
+    const rec = cassetteFetch({ path, mode: "record", fetch: real.f });
+    await rec("http://llm.local/x?a=1&API_KEY=S1&access_token=S2&token=S3&Key=S4#frag", { method: "GET" });
+    const raw = readFileSync(path, "utf8");
+    for (const s of ["S1", "S2", "S3", "S4"]) expect(raw).not.toContain(`=${s}`);
+    expect(raw).toContain("a=1");
+  });
+
+  it("replay tunnistaa pyynnon maskatusta URL:sta, vaikka avain vaihtuu", async () => {
+    const real = fakeFetch([{ body: { text: "moi" } }]);
+    const rec = cassetteFetch({ path, mode: "record", fetch: real.f });
+    await rec("http://llm.local/g?key=SECRET123&alt=json", post({ p: 1 }));
+
+    const never = fakeFetch([{ body: "ei saa kutsua" }]);
+    const rep = cassetteFetch({ path, mode: "replay", fetch: never.f });
+    const r = await rep("http://llm.local/g?key=TOINEN456&alt=json", post({ p: 1 }));
+    expect(await r.json()).toEqual({ text: "moi" });
+    expect(never.calls()).toBe(0);
+  });
+
+  it("CassetteMissError ei paljasta URL:n avainta", async () => {
+    const rep = cassetteFetch({ path, mode: "replay", fetch: fakeFetch([{ body: "x" }]).f });
+    const err = await rep("http://llm.local/g?key=SECRET123", { method: "GET" }).catch((e) => e);
+    expect(err).toBeInstanceOf(CassetteMissError);
+    expect(String(err.message)).not.toContain("SECRET123");
+  });
+
+  it("Authorization- ja x-api-key-otsakkeet eivat tallennu", async () => {
+    const real = fakeFetch([{ body: { ok: 1 } }]);
+    const rec = cassetteFetch({ path, mode: "record", fetch: real.f });
+    await rec(URL_, post({ p: 1 }, { Authorization: "Bearer SECRET123", "x-api-key": "SECRET123" }));
+    expect(readFileSync(path, "utf8")).not.toContain("SECRET123");
+  });
 });
